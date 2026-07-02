@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Візуалізація Дерев</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: rgba(30, 41, 59, 0.7);
+            --text-color: #f8fafc;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --success: #10b981;
+            --danger: #ef4444;
+            --input-bg: rgba(15, 23, 42, 0.6);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        }
+
+        body.light-theme {
+            --bg-color: #f8fafc;
+            --panel-bg: rgba(255, 255, 255, 0.85);
+            --text-color: #1e293b;
+            --input-bg: rgba(255, 255, 255, 0.9);
+            --border-color: rgba(0, 0, 0, 0.1);
+            --bg-gradient: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-color);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .header-panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            padding: 15px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+            flex-shrink: 0;
+            transition: background 0.3s, border-color 0.3s;
+        }
+
+        .title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 0;
+            background: linear-gradient(to right, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .theme-toggle {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .theme-toggle:hover {
+            background: rgba(148, 163, 184, 0.2);
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            padding: 20px;
+            gap: 20px;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 450px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            flex-shrink: 0;
+            transition: background 0.3s, border-color 0.3s;
+        }
+
+        .sidebar-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: border-color 0.3s;
+        }
+        
+        .sidebar-header h2 {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 400;
+        }
+
+        .textarea-container {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            flex: 1;
+            min-height: 200px;
+        }
+
+        .settings-container {
+            padding: 0 20px 20px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+            max-height: 35%;
+        }
+
+        .instruction-text {
+            margin: 0;
+            font-size: 0.9rem;
+            color: #64748b;
+            line-height: 1.5;
+        }
+
+        .instruction-text strong {
+            color: var(--text-color);
+        }
+
+        textarea {
+            flex: 1;
+            width: 100%;
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            padding: 15px;
+            border-radius: 12px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            box-sizing: border-box;
+            resize: none;
+            transition: all 0.3s;
+            white-space: pre;
+            overflow-wrap: normal;
+            overflow-x: auto;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+
+        .btn {
+            border: none;
+            color: white;
+            background-color: var(--accent);
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            box-shadow: none;
+        }
+        
+        .btn-secondary:hover {
+            background-color: rgba(148, 163, 184, 0.2);
+        }
+
+        #plot-container {
+            flex: 1;
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            position: relative;
+            transition: background 0.3s, border-color 0.3s;
+        }
+
+        #plot {
+            width: 100%;
+            height: 100%;
+        }
+        
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.4);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(148, 163, 184, 0.6);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header-panel">
+        <h1 class="title">Візуалізація Дерев</h1>
+        <button class="theme-toggle" id="themeToggle" title="Змінити тему">
+            <svg id="sunIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+            <svg id="moonIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+        </button>
+    </div>
+
+    <div class="main-content">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>Масив даних</h2>
+                <span id="treeCount" style="color: #64748b; font-size: 0.9rem;">0 шт.</span>
+            </div>
+            
+            <div class="textarea-container">
+                <textarea id="dataInput" placeholder="Вставте ваші дані сюди (Ctrl+V)..."></textarea>
+                
+                <div style="margin-top: 5px;">
+                    <input type="text" id="projectName" placeholder="Назва проекту (напр. Ділянка_1)" style="width: 100%; background: var(--input-bg); border: 1px solid var(--border-color); color: var(--text-color); padding: 8px 12px; border-radius: 8px; font-family: inherit; font-size: 0.9rem; box-sizing: border-box; margin-bottom: 10px;">
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-secondary" id="saveBtn" style="flex: 1; font-size: 0.85rem; padding: 8px;">💾 Зберегти проект</button>
+                        <button class="btn btn-secondary" id="loadBtn" style="flex: 1; font-size: 0.85rem; padding: 8px;">📂 Відкрити проект</button>
+                        <input type="file" id="fileLoad" style="display: none;" accept=".json,.txt">
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-header" style="padding-top: 0; padding-bottom: 10px; border-bottom: none;">
+                <h2 style="font-size: 1rem; color: #94a3b8;">Налаштування вигляду</h2>
+            </div>
+            <div class="settings-container" id="settingsContainer">
+                <!-- Settings rows injected here -->
+            </div>
+        </div>
+        
+        <div id="plot-container">
+            <div id="plot"></div>
+        </div>
+    </div>
+
+    <script>
+        let treesData = [];
+        let categorySettings = {}; // { 'CategoryName': { color: '#...', symbol: 'circle' } }
+
+        const colors = [
+            '#f1c40f', '#9b59b6', '#f39c12', '#8e44ad', '#1abc9c', 
+            '#fd79a8', '#00cec9', '#ffeaa7', '#6c5ce7', '#fab1a0',
+            '#00b894', '#0984e3', '#d63031', '#e84393', '#fdcb6e'
+        ];
+        
+        let colorIndex = 0;
+
+        function getDefaultColorForCategory(cat) {
+            if (cat === 'Цільові') return '#10b981';
+            if (cat === 'Рубка') return '#ef4444';
+            const col = colors[colorIndex % colors.length];
+            colorIndex++;
+            return col;
+        }
+
+        const dataInput = document.getElementById('dataInput');
+        const treeCountEl = document.getElementById('treeCount');
+        const settingsContainer = document.getElementById('settingsContainer');
+        
+        const themeToggleBtn = document.getElementById('themeToggle');
+        const sunIcon = document.getElementById('sunIcon');
+        const moonIcon = document.getElementById('moonIcon');
+
+        themeToggleBtn.addEventListener('click', () => {
+            document.body.classList.toggle('light-theme');
+            const isLight = document.body.classList.contains('light-theme');
+            sunIcon.style.display = isLight ? 'none' : 'block';
+            moonIcon.style.display = isLight ? 'block' : 'none';
+            updatePlot();
+        });
+
+        function getLayoutTemplate() {
+            const isLight = document.body.classList.contains('light-theme');
+            return {
+                paper_bgcolor: 'transparent',
+                plot_bgcolor: 'transparent',
+                font: { family: 'Inter, sans-serif', color: isLight ? '#1e293b' : '#f8fafc' },
+                xaxis: {
+                    title: 'Координата X',
+                    gridcolor: isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.1)',
+                    zerolinecolor: isLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.2)',
+                    scaleanchor: 'y',
+                    scaleratio: 1
+                },
+                yaxis: {
+                    title: 'Координата Y',
+                    gridcolor: isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.1)',
+                    zerolinecolor: isLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.2)'
+                },
+                legend: {
+                    x: 1.02,
+                    y: 1,
+                    bgcolor: isLight ? 'rgba(255, 255, 255, 0.8)' : 'rgba(15, 23, 42, 0.8)',
+                    bordercolor: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)',
+                    borderwidth: 1,
+                    font: { color: isLight ? '#1e293b' : '#e2e8f0' }
+                },
+                margin: { l: 60, r: 150, t: 40, b: 60 },
+                hovermode: 'closest'
+            };
+        }
+
+        const config = {
+            responsive: true,
+            displayModeBar: true,
+            displaylogo: false,
+            modeBarButtonsToRemove: ['lasso2d', 'select2d', 'autoScale2d']
+        };
+
+        Plotly.newPlot('plot', [], getLayoutTemplate(), config);
+
+        dataInput.addEventListener('input', () => {
+            parseAndPlot(dataInput.value);
+        });
+
+        function parseAndPlot(text) {
+            treesData = [];
+            if (!text.trim()) {
+                Plotly.react('plot', [], getLayoutTemplate(), config);
+                treeCountEl.textContent = `0 шт.`;
+                renderSettings();
+                return;
+            }
+
+            const lines = text.trim().split('\n');
+            if (lines.length === 0) return;
+
+            let delimiter = '\t';
+            if (!lines[0].includes('\t') && lines[0].includes(';')) delimiter = ';';
+            if (!lines[0].includes('\t') && !lines[0].includes(';') && lines[0].includes(',')) delimiter = ',';
+
+            const firstRow = lines[0].split(delimiter).map(s => s.trim().toLowerCase());
+            
+            let xCol = firstRow.findIndex(c => c === 'x' || c === 'х' || c.includes('координат x'));
+            let yCol = firstRow.findIndex(c => c === 'y' || c === 'у' || c.includes('координат y'));
+            if (yCol === xCol && xCol !== -1) yCol = firstRow.findIndex((c, idx) => idx !== xCol && (c === 'y' || c === 'у' || c.includes('координат')));
+            
+            let dCol = firstRow.findIndex(c => c.includes('діаметр') || c.includes('d') || c.includes('диаметр'));
+            let spCol = firstRow.findIndex(c => c.includes('вид') || c.includes('порода') || c.includes('дерево'));
+            let noteCol = firstRow.findIndex(c => c.includes('примітк') || c.includes('примеч') || c.includes('статус'));
+            let numCol = firstRow.findIndex(c => c === '№' || c === 'номер' || c === 'id' || c === 'n');
+
+            let hasHeaders = (xCol !== -1 || dCol !== -1 || spCol !== -1);
+            
+            let startIndex = 0;
+            if (hasHeaders) {
+                startIndex = 1;
+            } else {
+                const parts = lines[0].split(delimiter);
+                if (parts.length >= 6) {
+                    numCol = 0; xCol = 1; yCol = 2; dCol = 3; spCol = 4; noteCol = 5;
+                } else if (parts.length === 5) {
+                    numCol = -1; xCol = 0; yCol = 1; dCol = 2; spCol = 3; noteCol = 4;
+                } else {
+                    numCol = 0; xCol = 1; yCol = 2; dCol = 3; spCol = 4; noteCol = 5;
+                }
+            }
+
+            if (hasHeaders) {
+                if (xCol === -1) xCol = 0;
+                if (yCol === -1) yCol = 1;
+                if (dCol === -1) dCol = 2;
+                if (spCol === -1) spCol = 3;
+            }
+
+            for (let i = startIndex; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                const parts = lines[i].split(delimiter).map(s => s.trim());
+                
+                let species = parts[spCol] || 'Невідомо';
+                let note = noteCol !== -1 && parts[noteCol] ? parts[noteCol] : '';
+                let cat = species.trim();
+                let noteLow = note.trim().toLowerCase();
+                if (noteLow.includes('ціль') || noteLow.includes('цільов')) cat = 'Цільові';
+                else if (noteLow.includes('руб') || noteLow.includes('рубка')) cat = 'Рубка';
+
+                treesData.push({
+                    n: numCol !== -1 && parts[numCol] ? parts[numCol] : '',
+                    x: parts[xCol] || '',
+                    y: parts[yCol] || '',
+                    d: parts[dCol] || '10',
+                    species: species.trim(),
+                    note: note.trim(),
+                    category: cat
+                });
+            }
+
+            treeCountEl.textContent = `${treesData.length} шт.`;
+            renderSettings();
+            updatePlot();
+        }
+
+        function extractUniqueCategories() {
+            const set = new Set();
+            treesData.forEach(t => set.add(t.category));
+            return Array.from(set).sort();
+        }
+
+        function renderSettings() {
+            const categories = extractUniqueCategories();
+            settingsContainer.innerHTML = '';
+            
+            if (categories.length === 0) {
+                settingsContainer.innerHTML = '<span style="color: #64748b; font-size: 0.85rem;">Немає даних</span>';
+                return;
+            }
+
+            categories.forEach(cat => {
+                // Initialize default if not exists
+                if (!categorySettings[cat]) {
+                    categorySettings[cat] = {
+                        color: getDefaultColorForCategory(cat),
+                        symbol: 'circle'
+                    };
+                }
+
+                const s = categorySettings[cat];
+
+                const row = document.createElement('div');
+                row.style.display = 'flex';
+                row.style.alignItems = 'center';
+                row.style.justifyContent = 'space-between';
+                row.style.gap = '10px';
+                row.style.padding = '8px 12px';
+                row.style.background = 'rgba(0,0,0,0.1)';
+                row.style.borderRadius = '8px';
+                
+                row.innerHTML = `
+                    <span style="flex: 1; font-size: 0.9rem; font-weight: 600; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;" title="${cat}">${cat}</span>
+                    <input type="color" value="${s.color}" data-cat="${cat}" class="color-picker" style="width: 30px; height: 30px; padding: 0; border: none; border-radius: 4px; cursor: pointer; background: transparent;">
+                    <select data-cat="${cat}" class="shape-picker" style="background: var(--input-bg); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 6px; padding: 6px; font-size: 0.85rem; width: 110px; cursor: pointer;">
+                        <option value="circle" ${s.symbol === 'circle' ? 'selected' : ''}>Круг</option>
+                        <option value="square" ${s.symbol === 'square' ? 'selected' : ''}>Квадрат</option>
+                        <option value="diamond" ${s.symbol === 'diamond' ? 'selected' : ''}>Ромб</option>
+                        <option value="triangle-up" ${s.symbol === 'triangle-up' ? 'selected' : ''}>Трикутник</option>
+                        <option value="cross" ${s.symbol === 'cross' ? 'selected' : ''}>Хрест</option>
+                        <option value="star" ${s.symbol === 'star' ? 'selected' : ''}>Зірка</option>
+                    </select>
+                `;
+                settingsContainer.appendChild(row);
+            });
+
+            settingsContainer.querySelectorAll('.color-picker').forEach(el => {
+                el.addEventListener('input', (e) => {
+                    const cat = e.target.dataset.cat;
+                    categorySettings[cat].color = e.target.value;
+                    updatePlot();
+                });
+            });
+
+            settingsContainer.querySelectorAll('.shape-picker').forEach(el => {
+                el.addEventListener('change', (e) => {
+                    const cat = e.target.dataset.cat;
+                    categorySettings[cat].symbol = e.target.value;
+                    updatePlot();
+                });
+            });
+        }
+
+        function updatePlot() {
+            const tracesData = {};
+
+            treesData.forEach(row => {
+                let x = parseFloat(row.x);
+                let y = parseFloat(row.y);
+                if (isNaN(x) || isNaN(y)) return;
+
+                let d = parseFloat(row.d) || 10;
+                let category = row.category;
+                
+                let s = categorySettings[category] || { color: '#ffffff', symbol: 'circle' };
+                let color = s.color;
+                let symbol = s.symbol;
+                let line = {color: 'rgba(0,0,0,0.8)', width: 1};
+
+                // Keep distinct blue outline for Цільові if it's circle, just as a bonus styling (optional)
+                if (category === 'Цільові') {
+                    line = {color: '#3b82f6', width: 2};
+                }
+
+                if (!tracesData[category]) {
+                    tracesData[category] = {
+                        x: [],
+                        y: [],
+                        mode: 'markers',
+                        type: 'scatter',
+                        name: category,
+                        marker: {
+                            size: [],
+                            color: color,
+                            symbol: symbol,
+                            line: {
+                                color: line.color || 'transparent',
+                                width: line.width
+                            },
+                            sizemode: 'diameter',
+                            sizeref: 3, 
+                            sizemin: 3,
+                            opacity: 0.75
+                        },
+                        text: [],
+                        hoverinfo: 'text'
+                    };
+                }
+
+                tracesData[category].x.push(x);
+                tracesData[category].y.push(y);
+                tracesData[category].marker.size.push(d);
+                
+                let hoverNum = row.n ? `<b>№:</b> ${row.n}<br>` : '';
+                tracesData[category].text.push(`${hoverNum}<b>Вид:</b> ${row.species}<br><b>Діаметр:</b> ${d}<br><b>X:</b> ${x}, <b>Y:</b> ${y}${row.note ? '<br><b>Примітка:</b> ' + row.note : ''}`);
+            });
+
+            const plotData = Object.values(tracesData);
+
+            plotData.sort((a, b) => {
+                const order = { 'Цільові': 1, 'Рубка': 2 };
+                const aOrder = order[a.name] || 99;
+                const bOrder = order[b.name] || 99;
+                if (aOrder !== bOrder) return aOrder - bOrder;
+                return a.name.localeCompare(b.name);
+            });
+
+            Plotly.react('plot', plotData, getLayoutTemplate(), config);
+        }
+        
+        // Save logic
+        document.getElementById('saveBtn').addEventListener('click', () => {
+            const dataToSave = {
+                theme: document.body.classList.contains('light-theme') ? 'light' : 'dark',
+                content: dataInput.value,
+                settings: categorySettings
+            };
+            const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            let projName = document.getElementById('projectName').value.trim();
+            if (!projName) projName = 'проект_візуалізація_дерев';
+            if (!projName.endsWith('.json')) projName += '.json';
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = projName;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        // Load logic
+        const loadBtn = document.getElementById('loadBtn');
+        const fileLoad = document.getElementById('fileLoad');
+
+        loadBtn.addEventListener('click', () => {
+            fileLoad.click();
+        });
+
+        fileLoad.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const parsed = JSON.parse(event.target.result);
+                    if (parsed.content !== undefined) {
+                        dataInput.value = parsed.content;
+                        
+                        if (parsed.settings) {
+                            categorySettings = parsed.settings;
+                        }
+
+                        if (parsed.theme === 'light') {
+                            document.body.classList.add('light-theme');
+                            sunIcon.style.display = 'none';
+                            moonIcon.style.display = 'block';
+                        } else {
+                            document.body.classList.remove('light-theme');
+                            sunIcon.style.display = 'block';
+                            moonIcon.style.display = 'none';
+                        }
+                        parseAndPlot(dataInput.value);
+                    }
+                } catch (err) {
+                    // Fallback to raw text
+                    dataInput.value = event.target.result;
+                    parseAndPlot(dataInput.value);
+                }
+                fileLoad.value = ''; // Reset input
+            };
+            reader.readAsText(file);
+        });
+        
+        // Initial example data insertion
+        const exampleData = `№\tX\tY\tДіаметр\tВид\tПримітка\n1\t10\t10\t30\tСосна\t\n2\t15\t25\t45\tДуб\tцільове\n3\t25\t12\t22\tБереза\tрубка`;
+        dataInput.value = exampleData;
+        parseAndPlot(exampleData);
+    </script>
+</body>
+</html>
